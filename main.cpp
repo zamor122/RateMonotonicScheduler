@@ -1,7 +1,6 @@
 #include <iostream>
 
 // Rate Monotonic Scheduler
-//
 
 int main() {
 
