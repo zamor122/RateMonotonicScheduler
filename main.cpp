@@ -32,7 +32,7 @@ int main() {
     // Now test ms clock values with Chrono
     auto time1 = chrono::high_resolution_clock::now();
     // Let's test a bunch
-    for (int test = 0; test < 1000; test++)
+    //for (int test = 0; test < 10000; test++)
         doWork();
     auto time2 = chrono::high_resolution_clock::now();
     // Convert to MS (Whole Milliseconds) with duration cast
@@ -40,8 +40,8 @@ int main() {
     // Convert to Fractional MS with duration
     chrono::duration<double, milli> fms_conversion = (time2 - time1);
 
-    cout << wms_conversion.count() << endl;
-    cout << fms_conversion.count() << endl;
+    cout << wms_conversion.count() << " whole seconds" << endl;
+    cout << fms_conversion.count() << " milliseconds" << endl;
 
     return 0;
 }
