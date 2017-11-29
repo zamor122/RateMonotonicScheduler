@@ -96,6 +96,7 @@ void *run_thread(void * param) {
 //////////////////////////////////////
 
 void *scheduler(void * param) {
+
     counterT1 = 0;
     counterT2 = 0;
     counterT3 = 0;
