@@ -112,12 +112,13 @@ void *scheduler(void * param) {
 //////////////////////////////////////
 
 void *run_thread(void * param) {
-    int doWorkAmnt = (int) param;
+    struct threadValues *passedInValues;
+    passedInValues = (threadValues*) param;
 
-    for (int i = 0; i < doWorkAmnt; i++) {
+    for (int i = 0; i < (int) passedInValues->runAmount; i++) {
         doWork();
     }
-    counterT1++;
+    passedInValues->counter++; //Increment respective counter
 
     pthread_exit(nullptr);
 }
