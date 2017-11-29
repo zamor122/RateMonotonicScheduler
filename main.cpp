@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+#define GNU_SOURCE
 #include <iostream>
 #include <chrono>
 #include <stdio.h>
@@ -80,6 +80,23 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
 // Threading Function
 //////////////////////////////////////
 
+void *run_thread(void * param) {
+    struct threadValues *passedInValues;
+    passedInValues = (threadValues*) param;
+
+    int runFor = *passedInValues->runAmount; // May be inefficient to create a local copy here
+    for (int i = 0; i < runFor; i++) {
+        doWork();
+    }
+    passedInValues->counter++; //Increment respective counter
+
+    pthread_exit(nullptr);
+}
+
+//////////////////////////////////////
+// Rate Monotonic Scheduler
+//////////////////////////////////////
+
 void *scheduler(void * param) {
 
     counterT1 = 0;
@@ -103,22 +120,6 @@ void *scheduler(void * param) {
     int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
     int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
     int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
-
-    pthread_exit(nullptr);
-}
-
-//////////////////////////////////////
-// Threading Function
-//////////////////////////////////////
-
-void *run_thread(void * param) {
-    struct threadValues *passedInValues;
-    passedInValues = (threadValues*) param;
-
-    for (int i = 0; i < (int) passedInValues->runAmount; i++) {
-        doWork();
-    }
-    passedInValues->counter++; //Increment respective counter
 
     pthread_exit(nullptr);
 }
