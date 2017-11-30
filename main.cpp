@@ -27,6 +27,9 @@ int runAmntT2 = 2; // Thread 2 runs doWork() 2 times
 int runAmntT3 = 4; // Thread 3 runs doWork() 4 times
 int runAmntT4 = 16; // Thread 4 runs doWork() 16 times
 
+// Frame period for scheduler
+int framePeriod = 16;
+
 // Counters for each thread
 int counterT1;
 int counterT2;
@@ -109,26 +112,48 @@ void *run_thread(void * param) {
 //////////////////////////////////////
 
 void *scheduler(void * param) {
+    auto time1 = chrono::high_resolution_clock::now();
 
-    int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
-    pthread_setaffinity_np(T1, sizeof(cpu_set_t), &cpu);
+    for (int i = 0; i < framePeriod; i++) {
 
-    sem_post(&sem1);
 
-    int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
-    pthread_setaffinity_np(T2, sizeof(cpu_set_t), &cpu);
+            int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
+            pthread_setaffinity_np(T1, sizeof(cpu_set_t), &cpu);
 
-    int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
-    pthread_setaffinity_np(T3, sizeof(cpu_set_t), &cpu);
 
-    int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
-    pthread_setaffinity_np(T4, sizeof(cpu_set_t), &cpu);
+            int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
+            pthread_setaffinity_np(T2, sizeof(cpu_set_t), &cpu);
 
-    // Join threads
-    pthread_join(T1, nullptr);
-    pthread_join(T2, nullptr);
-    pthread_join(T3, nullptr);
-    pthread_join(T4, nullptr);
+
+
+            int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
+            pthread_setaffinity_np(T3, sizeof(cpu_set_t), &cpu);
+
+
+
+            int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
+            pthread_setaffinity_np(T4, sizeof(cpu_set_t), &cpu);
+
+            sem_post(&sem1);
+            sem_post(&sem2);
+            sem_post(&sem3);
+            sem_post(&sem4);
+
+
+
+            // Join threads
+            pthread_join(T1, nullptr);
+            pthread_join(T2, nullptr);
+            pthread_join(T3, nullptr);
+            pthread_join(T4, nullptr);
+
+
+        }
+    auto time2 = chrono::high_resolution_clock::now();
+    auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
+    chrono::duration<double, milli> fms_conversion = (time2 - time1);
+    cout << wms_conversion.count() << " whole seconds" << endl;
+    cout << fms_conversion.count() << " milliseconds" << endl;
 
     pthread_exit(nullptr);
 }
