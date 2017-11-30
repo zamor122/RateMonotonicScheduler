@@ -108,13 +108,13 @@ void *run_thread(void * param) {
 
     sleep(1);
     if (*passedInValues->runAmount == 1)
-        cout << "you used to call me on my T1" << endl;
+        cout << "you used to call me on my T1" << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 2)
-        cout << "you used to call me on my T2"  << endl;
+        cout << "you used to call me on my T2"  << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 4)
-        cout << "you used to call me on my T3"  << endl;
+        cout << "you used to call me on my T3"  << sched_getcpu() << endl;
     if (*passedInValues->runAmount == 16)
-        cout << "you used to call me on my T4" << endl;
+        cout << "you used to call me on my T4" << sched_getcpu() << endl;
     pthread_exit(nullptr);
 }
 
@@ -128,38 +128,33 @@ void *scheduler(void * param) {
     for (int i = 0; i < framePeriod; i++) {
 
 
-            int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
-            pthread_setaffinity_np(T1, sizeof(cpu_set_t), &cpu);
+        int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
 
 
-            int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
-            pthread_setaffinity_np(T2, sizeof(cpu_set_t), &cpu);
+        int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
 
 
-
-            int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
-            pthread_setaffinity_np(T3, sizeof(cpu_set_t), &cpu);
+        int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
 
 
 
-            int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
-            pthread_setaffinity_np(T4, sizeof(cpu_set_t), &cpu);
+        int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
 
-            sem_post(&sem1);
-            sem_post(&sem2);
-            sem_post(&sem3);
-            sem_post(&sem4);
-
+        sem_post(&sem1);
+        sem_post(&sem2);
+        sem_post(&sem3);
+        sem_post(&sem4);
 
 
-            // Join threads
-            pthread_join(T1, nullptr);
-            pthread_join(T2, nullptr);
-            pthread_join(T3, nullptr);
-            pthread_join(T4, nullptr);
+
+        // Join threads
+        pthread_join(T1, nullptr);
+        pthread_join(T2, nullptr);
+        pthread_join(T3, nullptr);
+        pthread_join(T4, nullptr);
 
 
-        }
+    }
     auto time2 = chrono::high_resolution_clock::now();
     auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
     chrono::duration<double, milli> fms_conversion = (time2 - time1);
@@ -193,8 +188,8 @@ int main() {
 
     // Set CPU priority to be the same for all threads;
     CPU_ZERO(&cpu);
-    //cout << get_nprocs_conf() << endl;
-    CPU_SET(14455, &cpu); //  All threads should run on CPU 1
+    CPU_SET(0, &cpu); //  All threads should run on CPU 1
+
 
     // Initialize thread attributes
     pthread_attr_init(&attr0);
@@ -203,6 +198,13 @@ int main() {
     pthread_attr_init(&attr3);
     pthread_attr_init(&attr4);
 
+    // Set processor affinity to be the same for all threads
+    pthread_attr_setaffinity_np(&attr0, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attr3, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attr4, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+
     // May need to swap these and put them below setschedparam
     param0.__sched_priority = 110; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
     param1.__sched_priority = 109; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
@@ -210,11 +212,12 @@ int main() {
     param3.__sched_priority = 107; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
     param4.__sched_priority = 106; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
 
-    pthread_attr_setschedparam(&attr0, &param0);  // Set thread priority
-    pthread_attr_setschedparam(&attr1, &param1);  // Set thread priority
-    pthread_attr_setschedparam(&attr2, &param2);  // Set thread priority
-    pthread_attr_setschedparam(&attr3, &param3);  // Set thread priority
-    pthread_attr_setschedparam(&attr4, &param4);  // Set thread priority
+    // Set thread priority
+    pthread_attr_setschedparam(&attr0, &param0);
+    pthread_attr_setschedparam(&attr1, &param1);
+    pthread_attr_setschedparam(&attr2, &param2);
+    pthread_attr_setschedparam(&attr3, &param3);
+    pthread_attr_setschedparam(&attr4, &param4);
 
     //Put in counters
     tValArr[0].counter = &counterT1;
@@ -240,7 +243,6 @@ int main() {
 
     // CREATE SCHEDULER
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, &tempParam);
-    pthread_setaffinity_np(schedulerThread, sizeof(cpu_set_t), &cpu); // Set processor affinity;
 
 
 
@@ -259,7 +261,7 @@ int main() {
     auto time1 = chrono::high_resolution_clock::now();
     // Let's test a bunch
     //for (int test = 0; test < 10000; test++)
-        doWork();
+    doWork();
     auto time2 = chrono::high_resolution_clock::now();
     // Convert to MS (Whole Milliseconds) with duration cast
     auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
