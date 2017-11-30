@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <pthread.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 using namespace std;
 // Rate Monotonic Scheduler
@@ -13,12 +14,14 @@ using namespace std;
 // Variables for program execution
 ///////////////////////////////////
 
+// Thread attributes
 pthread_attr_t attr0; // For main thread
 pthread_attr_t attr1; // For T1 thread
 pthread_attr_t attr2; // For T2 thread
 pthread_attr_t attr3; // For T3 thread
 pthread_attr_t attr4; // For T4 thread
 
+// Times to run each doWork (according to the thread it is in)
 int runAmntT1 = 1; // Thread 1 runs doWork() 1 time
 int runAmntT2 = 2; // Thread 2 runs doWork() 2 times
 int runAmntT3 = 4; // Thread 3 runs doWork() 4 times
@@ -30,12 +33,15 @@ int counterT2;
 int counterT3;
 int counterT4;
 
+// Scheduling Parameters
 sched_param param0;
 sched_param param1;
 sched_param param2;
 sched_param param3;
 sched_param param4;
 
+
+// Pthreads
 pthread_t schedulerThread;
 pthread_t T1;
 pthread_t T2;
@@ -44,6 +50,12 @@ pthread_t T4;
 
 //CPU
 cpu_set_t cpu;
+
+// Semaphores (for synchronization)
+sem_t sem1;
+sem_t sem2;
+sem_t sem3;
+sem_t sem4;
 
 //DoWorkMatrix
 int doWorkMatrix[10][10]; // 10x10 matrix for do work
@@ -54,6 +66,7 @@ int doWorkMatrix[10][10]; // 10x10 matrix for do work
 struct threadValues {
     int* runAmount;
     int* counter;
+    sem_t* semaphore;
 };
 
 // Specific struct for this program;
@@ -70,8 +83,7 @@ void doWork() { // Busy work function, multiplies each column of a 10 x 10 matri
             total *= doWorkMatrix[j][i]; // multiply all values in current column
         }
         for (int a = 0; a < 9; a++) {
-            total *= doWorkMatrix[a][i +
-                                     5]; // now multiply all the values in the column which is five columns over from the current one
+            total *= doWorkMatrix[a][i + 5]; // now multiply all the values in the column which is five columns over from the current one
         }
     }
 }
@@ -84,6 +96,7 @@ void *run_thread(void * param) {
     struct threadValues *passedInValues;
     passedInValues = (threadValues*) param;
 
+    //sem_wait(passedInValues->semaphore);
     for (int i = 0; i < *passedInValues->runAmount; i++) {
         doWork(); // Do busy work
         *passedInValues->counter += 1; //Increment respective counter
@@ -97,29 +110,17 @@ void *run_thread(void * param) {
 
 void *scheduler(void * param) {
 
-    counterT1 = 0;
-    counterT2 = 0;
-    counterT3 = 0;
-    counterT4 = 0;
-
-    //Put in counters
-    tValArr[0].counter = &counterT1;
-    tValArr[1].counter = &counterT2;
-    tValArr[2].counter = &counterT3;
-    tValArr[3].counter = &counterT4;
-
-    // Put in run time amount
-    tValArr[0].runAmount = &runAmntT1;
-    tValArr[1].runAmount = &runAmntT2;
-    tValArr[2].runAmount = &runAmntT3;
-    tValArr[3].runAmount = &runAmntT4;
-
     int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
     pthread_setaffinity_np(T1, sizeof(cpu_set_t), &cpu);
+
+    sem_post(&sem1);
+
     int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
     pthread_setaffinity_np(T2, sizeof(cpu_set_t), &cpu);
+
     int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
     pthread_setaffinity_np(T3, sizeof(cpu_set_t), &cpu);
+
     int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
     pthread_setaffinity_np(T4, sizeof(cpu_set_t), &cpu);
 
@@ -140,16 +141,30 @@ int main() {
             doWorkMatrix[i][j] = 1; // Set all matrix values to one
         }
     }
+
+    //Initialize semaphores (all shared and all unlocked to start)
+    sem_init(&sem1, 1, 1);
+    sem_init(&sem2, 1, 1);
+    sem_init(&sem3, 1, 1);
+    sem_init(&sem4, 1, 1);
+
+    // Initialize counters
+    counterT1 = 0;
+    counterT2 = 0;
+    counterT3 = 0;
+    counterT4 = 0;
+
+
     // Set CPU priority to be the same for all threads;
     CPU_ZERO(&cpu);
     CPU_SET(1, &cpu); //  All threads should run on CPU 1
 
-
-    pthread_attr_init(&attr0); // Initialize thread attributes
-    pthread_attr_init(&attr1); // Initialize thread attributes
-    pthread_attr_init(&attr2); // Initialize thread attributes
-    pthread_attr_init(&attr3); // Initialize thread attributes
-    pthread_attr_init(&attr4); // Initialize thread attributes
+    // Initialize thread attributes
+    pthread_attr_init(&attr0);
+    pthread_attr_init(&attr1);
+    pthread_attr_init(&attr2);
+    pthread_attr_init(&attr3);
+    pthread_attr_init(&attr4);
 
     // May need to swap these and put them below setschedparam
     param0.__sched_priority = 10; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
@@ -164,6 +179,24 @@ int main() {
     pthread_attr_setschedparam(&attr3, &param0);  // Set thread priority
     pthread_attr_setschedparam(&attr4, &param0);  // Set thread priority
 
+    //Put in counters
+    tValArr[0].counter = &counterT1;
+    tValArr[1].counter = &counterT2;
+    tValArr[2].counter = &counterT3;
+    tValArr[3].counter = &counterT4;
+
+    // Put in run time amount
+    tValArr[0].runAmount = &runAmntT1;
+    tValArr[1].runAmount = &runAmntT2;
+    tValArr[2].runAmount = &runAmntT3;
+    tValArr[3].runAmount = &runAmntT4;
+
+    // Put in semaphores
+    tValArr[0].semaphore = &sem1;
+    tValArr[1].semaphore = &sem2;
+    tValArr[2].semaphore = &sem3;
+    tValArr[3].semaphore = &sem4;
+
     //Temp var
     int tempParam = 0;
 
@@ -172,14 +205,19 @@ int main() {
     int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, &tempParam);
     pthread_setaffinity_np(schedulerThread, sizeof(cpu_set_t), &cpu); // Set processor affinity;
 
-    pthread_join(schedulerThread, nullptr); // Join with scheduler
 
+
+    // Join scheduler thread at end of program execution
+    pthread_join(schedulerThread, nullptr);
+
+
+    // Print out results
     cout << "T1 Count: " << counterT1 << endl;
     cout << "T2 Count: " << counterT2 << endl;
     cout << "T3 Count: " << counterT3 << endl;
     cout << "T4 Count: " << counterT4 << endl;
 
-    /*
+
     // Now test ms clock values with Chrono
     auto time1 = chrono::high_resolution_clock::now();
     // Let's test a bunch
@@ -192,7 +230,7 @@ int main() {
     chrono::duration<double, milli> fms_conversion = (time2 - time1);
 
     cout << wms_conversion.count() << " whole seconds" << endl;
-    cout << fms_conversion.count() << " milliseconds" << endl; */
+    cout << fms_conversion.count() << " milliseconds" << endl;
 
     return 0;
 }
