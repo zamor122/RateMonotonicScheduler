@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <semaphore.h>
+#include <sys/sysinfo.h>
 
 using namespace std;
 // Rate Monotonic Scheduler
@@ -99,11 +100,21 @@ void *run_thread(void * param) {
     struct threadValues *passedInValues;
     passedInValues = (threadValues*) param;
 
-    //sem_wait(passedInValues->semaphore);
+    sem_wait(passedInValues->semaphore);
     for (int i = 0; i < *passedInValues->runAmount; i++) {
         doWork(); // Do busy work
         *passedInValues->counter += 1; //Increment respective counter
     }
+
+    sleep(1);
+    if (*passedInValues->runAmount == 1)
+        cout << "you used to call me on my T1" << endl;
+    if (*passedInValues->runAmount == 2)
+        cout << "you used to call me on my T2"  << endl;
+    if (*passedInValues->runAmount == 4)
+        cout << "you used to call me on my T3"  << endl;
+    if (*passedInValues->runAmount == 16)
+        cout << "you used to call me on my T4" << endl;
     pthread_exit(nullptr);
 }
 
@@ -182,7 +193,8 @@ int main() {
 
     // Set CPU priority to be the same for all threads;
     CPU_ZERO(&cpu);
-    CPU_SET(1, &cpu); //  All threads should run on CPU 1
+    //cout << get_nprocs_conf() << endl;
+    CPU_SET(14455, &cpu); //  All threads should run on CPU 1
 
     // Initialize thread attributes
     pthread_attr_init(&attr0);
@@ -192,17 +204,17 @@ int main() {
     pthread_attr_init(&attr4);
 
     // May need to swap these and put them below setschedparam
-    param0.__sched_priority = 10; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param1.__sched_priority = 9; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param2.__sched_priority = 8; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param3.__sched_priority = 7; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param4.__sched_priority = 6; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param0.__sched_priority = 110; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param1.__sched_priority = 109; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param2.__sched_priority = 108; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param3.__sched_priority = 107; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
+    param4.__sched_priority = 106; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
 
     pthread_attr_setschedparam(&attr0, &param0);  // Set thread priority
-    pthread_attr_setschedparam(&attr1, &param0);  // Set thread priority
-    pthread_attr_setschedparam(&attr2, &param0);  // Set thread priority
-    pthread_attr_setschedparam(&attr3, &param0);  // Set thread priority
-    pthread_attr_setschedparam(&attr4, &param0);  // Set thread priority
+    pthread_attr_setschedparam(&attr1, &param1);  // Set thread priority
+    pthread_attr_setschedparam(&attr2, &param2);  // Set thread priority
+    pthread_attr_setschedparam(&attr3, &param3);  // Set thread priority
+    pthread_attr_setschedparam(&attr4, &param4);  // Set thread priority
 
     //Put in counters
     tValArr[0].counter = &counterT1;
