@@ -1,275 +1,178 @@
 #include <sched.h>
 #include <iostream>
 #include <chrono>
-#include <cstdio>
-#include <pthread.h>
 #include <unistd.h>
 #include <semaphore.h>
 #include <sys/sysinfo.h>
-
 using namespace std;
-// Rate Monotonic Scheduler
-
-
-///////////////////////////////////
-// Variables for program execution
-///////////////////////////////////
-
-// Thread attributes
-pthread_attr_t attr0; // For main thread
-pthread_attr_t attr1; // For T1 thread
-pthread_attr_t attr2; // For T2 thread
-pthread_attr_t attr3; // For T3 thread
-pthread_attr_t attr4; // For T4 thread
-
-// Times to run each doWork (according to the thread it is in)
-int runAmntT1 = 1; // Thread 1 runs doWork() 1 time
-int runAmntT2 = 2; // Thread 2 runs doWork() 2 times
-int runAmntT3 = 4; // Thread 3 runs doWork() 4 times
-int runAmntT4 = 16; // Thread 4 runs doWork() 16 times
-
-// Frame period for scheduler
-int framePeriod = 16;
-
-// Counters for each thread
-int counterT1;
-int counterT2;
-int counterT3;
-int counterT4;
-
-// Scheduling Parameters
+//doWork function to do busy work
+int busyMatrix[10][10];
+struct values {
+    int* multiplier;
+    int* counter;
+    sem_t* semaphore;
+};
+//values used
+values tValArr[4];
+//main doWork function
+void doWork() {
+    int total = 1;
+    for(int i = 0; i < 4; i++) {
+        for (int j = 0; j < 9; j++) {
+            total *= busyMatrix[j][i];
+        }
+        for (int k = 0; k < 9; k++) {
+            total *= busyMatrix[k][i + 5];
+        }
+    }
+}
+//begin rate monotonic rms
+//thread attributes
+pthread_attr_t attribute0;
+pthread_attr_t attribute1;
+pthread_attr_t attribute2;
+pthread_attr_t attribute3;
+pthread_attr_t attribute4;
+//run times
+int run1 = 1;
+int run2 = 2;
+int run4 = 4;
+int run16 = 16;
+//frame declaration
+int frame = 16;
+// Counters
+int counter1;
+int counter2;
+int counter3;
+int counter4;
+// Parameters for scheduling
 sched_param param0;
 sched_param param1;
 sched_param param2;
 sched_param param3;
 sched_param param4;
-
-
 // Pthreads
-pthread_t schedulerThread;
-pthread_t T1;
-pthread_t T2;
-pthread_t T3;
-pthread_t T4;
-
+pthread_t mainThread;
+pthread_t thread1;
+pthread_t thread2;
+pthread_t thread3;
+pthread_t thread4;
 //CPU
 cpu_set_t cpu;
-
-// Semaphores (for synchronization)
+// Semaphore declaration
 sem_t sem1;
 sem_t sem2;
 sem_t sem3;
 sem_t sem4;
-
-//DoWorkMatrix
-int doWorkMatrix[10][10]; // 10x10 matrix for do work
-
-/////////////////////////////////////////////////
-// Struct: For passing in specific thread info
-/////////////////////////////////////////////////
-struct threadValues {
-    int* runAmount;
-    int* counter;
-    sem_t* semaphore;
-};
-
-// Specific struct for this program;
-threadValues tValArr[4]; // 4 Thread value structs. One for each of the four threads
-
-/////////////////////////////
-// Do Work Function
-/////////////////////////////
-
-void doWork() { // Busy work function, multiplies each column of a 10 x 10 matrix (all numbers are 1)
-    int total = 1; // total of multiplication
-    for(int i = 0; i < 4; i++) { // We go through 5 sets, with each set including 2 columns (the immediate column, then the column five to the right from it)
-        for (int j = 0; j < 9; j++) {
-            total *= doWorkMatrix[j][i]; // multiply all values in current column
-        }
-        for (int a = 0; a < 9; a++) {
-            total *= doWorkMatrix[a][i + 5]; // now multiply all the values in the column which is five columns over from the current one
-        }
-    }
-}
-
-//////////////////////////////////////
-// Threading Function
-//////////////////////////////////////
-
 void *run_thread(void * param) {
-    struct threadValues *passedInValues;
-    passedInValues = (threadValues*) param;
-
-    sem_wait(passedInValues->semaphore);
-    for (int i = 0; i < *passedInValues->runAmount; i++) {
-        doWork(); // Do busy work
-        *passedInValues->counter += 1; //Increment respective counter
+    struct values *args;
+    args = (values*) param;
+    sem_wait(args->semaphore);
+    for (int i = 0; i < *args->multiplier; i++) {
+        doWork();
+        *args->counter += 1;
     }
-
     sleep(1);
-    if (*passedInValues->runAmount == 1)
-        cout << "you used to call me on my T1" << sched_getcpu() << endl;
-    if (*passedInValues->runAmount == 2)
-        cout << "you used to call me on my T2"  << sched_getcpu() << endl;
-    if (*passedInValues->runAmount == 4)
-        cout << "you used to call me on my T3"  << sched_getcpu() << endl;
-    if (*passedInValues->runAmount == 16)
-        cout << "you used to call me on my T4" << sched_getcpu() << endl;
+    if (*args->multiplier == 1)
+        cout << "Thread 1 Working..." << endl;
+    if (*args->multiplier == 2)
+        cout << "Thread 2 Working..." << endl;
+    if (*args->multiplier == 4)
+        cout << "Thread 3 Working..." << endl;
+    if (*args->multiplier == 16)
+        cout << "Thread 4 Working..." << endl;
     pthread_exit(nullptr);
 }
-
-//////////////////////////////////////
-// Rate Monotonic Scheduler
-//////////////////////////////////////
-
-void *scheduler(void * param) {
+void *rms(void *param) {
     auto time1 = chrono::high_resolution_clock::now();
-
-    for (int i = 0; i < framePeriod; i++) {
-
-
-        int tid1 = pthread_create(&T1, &attr1, run_thread, (void *) &tValArr[0]);
-
-
-        int tid2 = pthread_create(&T2, &attr2, run_thread, (void *) &tValArr[1]);
-
-
-        int tid3 = pthread_create(&T3, &attr3, run_thread, (void *) &tValArr[2]);
-
-
-
-        int tid4 = pthread_create(&T4, &attr4, run_thread, (void *) &tValArr[3]);
-
+    for (int i = 0; i < frame; i++) {
+        int t1 = pthread_create(&thread1, &attribute1, run_thread, (void *) &tValArr[0]);
+        int t2 = pthread_create(&thread2, &attribute2, run_thread, (void *) &tValArr[1]);
+        int t3 = pthread_create(&thread3, &attribute3, run_thread, (void *) &tValArr[2]);
+        int t4 = pthread_create(&thread4, &attribute4, run_thread, (void *) &tValArr[3]);
         sem_post(&sem1);
         sem_post(&sem2);
         sem_post(&sem3);
         sem_post(&sem4);
-
-
-
         // Join threads
-        pthread_join(T1, nullptr);
-        pthread_join(T2, nullptr);
-        pthread_join(T3, nullptr);
-        pthread_join(T4, nullptr);
-
-
+        pthread_join(thread1, nullptr);
+        pthread_join(thread2, nullptr);
+        pthread_join(thread3, nullptr);
+        pthread_join(thread4, nullptr);
     }
     auto time2 = chrono::high_resolution_clock::now();
-    auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
-    chrono::duration<double, milli> fms_conversion = (time2 - time1);
-    cout << wms_conversion.count() << " whole seconds" << endl;
-    cout << fms_conversion.count() << " milliseconds" << endl;
-
+    auto conversion1 = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
+    chrono::duration<double, milli> conversion2 = (time2 - time1);
+    cout << conversion1.count() << " s" << endl;
+    cout << conversion2.count() << " ms" << endl;
     pthread_exit(nullptr);
 }
-
+//main
 int main() {
-
-    // Initialize do work matrix
+cout << "Rate Monotonic Scheduler Starting" << endl;
+//initialize everything
     for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9; j++) {
-            doWorkMatrix[i][j] = 1; // Set all matrix values to one
+            busyMatrix[i][j] = 1;
         }
     }
-
-    //Initialize semaphores (all shared and all unlocked to start)
-    sem_init(&sem1, 1, 1);
+    sem_init(&sem1, 1, 1);    //semaphores
     sem_init(&sem2, 1, 1);
     sem_init(&sem3, 1, 1);
     sem_init(&sem4, 1, 1);
-
-    // Initialize counters
-    counterT1 = 0;
-    counterT2 = 0;
-    counterT3 = 0;
-    counterT4 = 0;
-
-
-    // Set CPU priority to be the same for all threads;
-    CPU_ZERO(&cpu);
-    CPU_SET(0, &cpu); //  All threads should run on CPU 1
-
-
-    // Initialize thread attributes
-    pthread_attr_init(&attr0);
-    pthread_attr_init(&attr1);
-    pthread_attr_init(&attr2);
-    pthread_attr_init(&attr3);
-    pthread_attr_init(&attr4);
-
-    // Set processor affinity to be the same for all threads
-    pthread_attr_setaffinity_np(&attr0, sizeof(cpu_set_t), &cpu); // Set processor affinity;
-    pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpu); // Set processor affinity;
-    pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpu); // Set processor affinity;
-    pthread_attr_setaffinity_np(&attr3, sizeof(cpu_set_t), &cpu); // Set processor affinity;
-    pthread_attr_setaffinity_np(&attr4, sizeof(cpu_set_t), &cpu); // Set processor affinity;
-
-    // May need to swap these and put them below setschedparam
-    param0.__sched_priority = 110; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param1.__sched_priority = 109; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param2.__sched_priority = 108; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param3.__sched_priority = 107; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-    param4.__sched_priority = 106; // DOUBLE CHECK THIS IF YOU RUN INTO TROUBLE
-
-    // Set thread priority
-    pthread_attr_setschedparam(&attr0, &param0);
-    pthread_attr_setschedparam(&attr1, &param1);
-    pthread_attr_setschedparam(&attr2, &param2);
-    pthread_attr_setschedparam(&attr3, &param3);
-    pthread_attr_setschedparam(&attr4, &param4);
-
-    //Put in counters
-    tValArr[0].counter = &counterT1;
-    tValArr[1].counter = &counterT2;
-    tValArr[2].counter = &counterT3;
-    tValArr[3].counter = &counterT4;
-
-    // Put in run time amount
-    tValArr[0].runAmount = &runAmntT1;
-    tValArr[1].runAmount = &runAmntT2;
-    tValArr[2].runAmount = &runAmntT3;
-    tValArr[3].runAmount = &runAmntT4;
-
-    // Put in semaphores
-    tValArr[0].semaphore = &sem1;
+    counter1 = 0;    //counters
+    counter2 = 0;
+    counter3 = 0;
+    counter4 = 0;
+    CPU_ZERO(&cpu);    //set affinity
+    CPU_SET(0, &cpu);
+    pthread_attr_setaffinity_np(&attribute0, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attribute1, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attribute2, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attribute3, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_setaffinity_np(&attribute4, sizeof(cpu_set_t), &cpu); // Set processor affinity;
+    pthread_attr_init(&attribute0);    //attributes
+    pthread_attr_init(&attribute1);
+    pthread_attr_init(&attribute2);
+    pthread_attr_init(&attribute3);
+    pthread_attr_init(&attribute4);
+    param0.__sched_priority = 110; //priorities
+    param1.__sched_priority = 109;
+    param2.__sched_priority = 108;
+    param3.__sched_priority = 107;
+    param4.__sched_priority = 106;
+    pthread_attr_setschedparam(&attribute0, &param0);
+    pthread_attr_setschedparam(&attribute1, &param1);
+    pthread_attr_setschedparam(&attribute2, &param2);
+    pthread_attr_setschedparam(&attribute3, &param3);
+    pthread_attr_setschedparam(&attribute4, &param4);
+    tValArr[0].counter = &counter1; //counters
+    tValArr[1].counter = &counter2;
+    tValArr[2].counter = &counter3;
+    tValArr[3].counter = &counter4;
+    tValArr[0].multiplier = &run1; //runtimes
+    tValArr[1].multiplier = &run2;
+    tValArr[2].multiplier = &run4;
+    tValArr[3].multiplier = &run16;
+    tValArr[0].semaphore = &sem1; //semaphores
     tValArr[1].semaphore = &sem2;
     tValArr[2].semaphore = &sem3;
     tValArr[3].semaphore = &sem4;
-
-    //Temp var
     int tempParam = 0;
-
-
-    // CREATE SCHEDULER
-    int tidSchThr = pthread_create(&schedulerThread, &attr0, scheduler, &tempParam);
-
-
-
-    // Join scheduler thread at end of program execution
-    pthread_join(schedulerThread, nullptr);
-
-
-    // Print out results
-    cout << "T1 Count: " << counterT1 << endl;
-    cout << "T2 Count: " << counterT2 << endl;
-    cout << "T3 Count: " << counterT3 << endl;
-    cout << "T4 Count: " << counterT4 << endl;
-
-
-    // Now test ms clock values with Chrono
+    int tidSchThr = pthread_create(&mainThread, &attribute0, rms, &tempParam);
+    pthread_join(mainThread, nullptr);
+    //end
+    cout << "Scheduler ending, results displayed below: " << endl;
+    cout << "Count for Thread 1: " << counter1 << endl;
+    cout << "Count for Thread 2: " << counter2 << endl;
+    cout << "Count for Thread 3: " << counter3 << endl;
+    cout << "Count for Thread 4: " << counter4 << endl;
     auto time1 = chrono::high_resolution_clock::now();
-    // Let's test a bunch
-    //for (int test = 0; test < 10000; test++)
     doWork();
     auto time2 = chrono::high_resolution_clock::now();
-    // Convert to MS (Whole Milliseconds) with duration cast
     auto wms_conversion = chrono::duration_cast<chrono::milliseconds>(time2 - time1);
-    // Convert to Fractional MS with duration
     chrono::duration<double, milli> fms_conversion = (time2 - time1);
-
-    cout << wms_conversion.count() << " whole seconds" << endl;
-    cout << fms_conversion.count() << " milliseconds" << endl;
-
+    cout << wms_conversion.count() << " s" << endl;
+    cout << fms_conversion.count() << " ms" << endl;
     return 0;
 }
