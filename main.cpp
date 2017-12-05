@@ -522,19 +522,24 @@ int main() {
     cout << "Enter 0 to exit application.\n" << endl;
     int option;
     cin >> option;
-    // Check test case
-    if (option == 1) {
-        runNormal();
-    } else if (option == 2) {
-        runOverrunThread1();
-    } else if (option == 3) {
-        runOverrunThread2();
-    }else if (option == 0){
-        exit(0);
-    }
-    else {
-        cout << "Enter a valid option: " << endl;
-        cin >> option;
+    while(option != 0 || option != 1 || option != 2 || option != 3){
+        // Check test case
+        if (option == 1) {
+            runNormal();
+            break;
+        } else if (option == 2) {
+            runOverrunThread1();
+            break;
+        } else if (option == 3) {
+            runOverrunThread2();
+            break;
+        }else if (option == 0){
+            exit(0);
+        }
+        else {
+            cout << "Enter a valid option: " << endl;
+            cin >> option;
+        }
     }
     return 0;
 }
