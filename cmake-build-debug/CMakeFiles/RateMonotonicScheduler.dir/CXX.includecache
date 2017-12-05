@@ -1,0 +1,38 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/shayne/RateMonotonicScheduler/main.cpp
+sched.h
+-
+iostream
+-
+chrono
+-
+stdio.h
+-
+pthread.h
+-
+unistd.h
+-
+semaphore.h
+-
+signal.h
+-
+atomic
+-
+time.h
+-
+stdlib.h
+-
+sys/sysinfo.h
+-
+sys/time.h
+-
+mutex
+-
+

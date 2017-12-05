@@ -1,0 +1,3 @@
+I am using 4 threads to perform the task of the scheduler. I am using 5 sempahores, 4 of which are synching the threads and the last one is to schedule the main thread when the timer goes off.
+The program itself is fairly simple, it checks to see if it is the first time running, runs the operation x amount of times and then sleeps until it is called again by the scheduler. The Overruns are chedcked for by a boolean to see if it has finished or not.
+If it has there's no overrun, otherwise there is and the program is stopped and the user is given back the statistics. THE USER MUST RUN THE EXECUTABLE AS SUDO USER OR ELSE THE TIMING MECHANISM WILL NOT WORK PROPERLY. 
